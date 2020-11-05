@@ -22,7 +22,7 @@ spec:
     spec:
       serviceAccountName: helm-wrapper
       containers:
-        - image: <image>
+        - image: helm-proxy:v1
           imagePullPolicy: IfNotPresent
           name: helm-wrapper
           readinessProbe:

@@ -9,12 +9,14 @@ build:
 
 # cross compilation
 build-linux:
+# 构建程序 -s -w缩小构建文件大小
 	GOOS=linux GOARCH=amd64 go build -ldflags ${LDFLAGS} -o ${BINARY_NAME}
 
 # build docker image
 build-docker:
-	GOOS=linux GOARCH=amd64 go build -ldflags ${LDFLAGS} -o ${BINARY_NAME}
-	docker build -t helm-wrapper:`git rev-parse --short HEAD` .
+# docker镜像采用scratch最小化镜像构建,所以采取静态编译方法构建程序,不依赖任何动态链接库
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -ldflags '-s -w -extldflags "-static"' -o ${BINARY_NAME}
+	docker build -t helm-proxy:v1 .
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCILINT)
