@@ -1,8 +1,10 @@
-package main
+package service
 
 import (
 	"context"
 	"fmt"
+	"helm-wrapper/global"
+	"helm-wrapper/pkg/app"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -63,9 +65,9 @@ func applyConstraint(version string, versions bool, res []*search.Result) ([]*se
 
 func buildSearchIndex(version string) (*search.Index, error) {
 	i := search.NewIndex()
-	for _, re := range helmConfig.HelmRepos {
+	for _, re := range global.MyHelmConfig.HelmRepos {
 		n := re.Name
-		f := filepath.Join(settings.RepositoryCache, helmpath.CacheIndexFile(n))
+		f := filepath.Join(global.HelmClientSettings.RepositoryCache, helmpath.CacheIndexFile(n))
 		ind, err := repo.LoadIndexFile(f)
 		if err != nil {
 			glog.Warningf("WARNING: Repo %q is corrupt or missing. Try 'helm repo update'.", n)
@@ -77,15 +79,15 @@ func buildSearchIndex(version string) (*search.Index, error) {
 	return i, nil
 }
 
-func initRepository(c *repo.Entry) error {
+func InitRepository(c *repo.Entry) error {
 	// Ensure the file directory exists as it is required for file locking
-	err := os.MkdirAll(filepath.Dir(settings.RepositoryConfig), os.ModePerm)
+	err := os.MkdirAll(filepath.Dir(global.HelmClientSettings.RepositoryConfig), os.ModePerm)
 	if err != nil && !os.IsExist(err) {
 		return err
 	}
 
 	// Acquire a file lock for process synchronization
-	fileLock := flock.New(strings.Replace(settings.RepositoryConfig, filepath.Ext(settings.RepositoryConfig), ".lock", 1))
+	fileLock := flock.New(strings.Replace(global.HelmClientSettings.RepositoryConfig, filepath.Ext(global.HelmClientSettings.RepositoryConfig), ".lock", 1))
 	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
@@ -96,7 +98,7 @@ func initRepository(c *repo.Entry) error {
 		return err
 	}
 
-	b, err := ioutil.ReadFile(settings.RepositoryConfig)
+	b, err := ioutil.ReadFile(global.HelmClientSettings.RepositoryConfig)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -106,7 +108,7 @@ func initRepository(c *repo.Entry) error {
 		return err
 	}
 
-	r, err := repo.NewChartRepository(c, getter.All(settings))
+	r, err := repo.NewChartRepository(c, getter.All(global.HelmClientSettings))
 	if err != nil {
 		return err
 	}
@@ -117,7 +119,7 @@ func initRepository(c *repo.Entry) error {
 
 	f.Update(c)
 
-	if err := f.WriteFile(settings.RepositoryConfig, 0644); err != nil {
+	if err := f.WriteFile(global.HelmClientSettings.RepositoryConfig, 0644); err != nil {
 		return err
 	}
 
@@ -125,7 +127,7 @@ func initRepository(c *repo.Entry) error {
 }
 
 func updateChart(c *repo.Entry) error {
-	r, err := repo.NewChartRepository(c, getter.All(settings))
+	r, err := repo.NewChartRepository(c, getter.All(global.HelmClientSettings))
 	if err != nil {
 		return err
 	}
@@ -137,7 +139,7 @@ func updateChart(c *repo.Entry) error {
 	return nil
 }
 
-func updateRepositories(c *gin.Context) {
+func UpdateRepositories(c *gin.Context) {
 	type errRepo struct {
 		Name string
 		Err  string
@@ -145,7 +147,7 @@ func updateRepositories(c *gin.Context) {
 	errRepoList := []errRepo{}
 
 	var wg sync.WaitGroup
-	for _, c := range helmConfig.HelmRepos {
+	for _, c := range global.MyHelmConfig.HelmRepos {
 		wg.Add(1)
 		go func(c *repo.Entry) {
 			defer wg.Done()
@@ -161,14 +163,14 @@ func updateRepositories(c *gin.Context) {
 	wg.Wait()
 
 	if len(errRepoList) > 0 {
-		respErr(c, fmt.Errorf("error list: %v", errRepoList))
+		app.RespErr(c, fmt.Errorf("error list: %v", errRepoList))
 		return
 	}
 
-	respOK(c, nil)
+	app.RespOK(c, nil)
 }
 
-func listRepoCharts(c *gin.Context) {
+func ListRepoCharts(c *gin.Context) {
 	version := c.Query("version")   // chart version
 	versions := c.Query("versions") // if "true", all versions
 	keyword := c.Query("keyword")   // search keyword
@@ -180,7 +182,7 @@ func listRepoCharts(c *gin.Context) {
 
 	index, err := buildSearchIndex(version)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
@@ -190,7 +192,7 @@ func listRepoCharts(c *gin.Context) {
 	} else {
 		res, err = index.Search(keyword, searchMaxScore, false)
 		if err != nil {
-			respErr(c, err)
+			app.RespErr(c, err)
 			return
 		}
 	}
@@ -202,7 +204,7 @@ func listRepoCharts(c *gin.Context) {
 	}
 	data, err := applyConstraint(version, versionsB, res)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	chartList := make(repoChartList, 0, len(data))
@@ -215,7 +217,7 @@ func listRepoCharts(c *gin.Context) {
 		})
 	}
 
-	respOK(c, chartList)
+	app.RespOK(c, chartList)
 }
 
 func SafeCloser(fileLock *flock.Flock, err *error) {

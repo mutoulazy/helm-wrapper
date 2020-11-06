@@ -5,6 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/spf13/pflag"
+	"helm-wrapper/global"
+	"helm-wrapper/internal/routers"
+	"helm-wrapper/internal/service"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -15,25 +18,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/glog"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/repo"
 	"sigs.k8s.io/yaml"
 )
 
-type HelmConfig struct {
-	UploadPath   string        `yaml:"uploadPath"`
-	HelmRepos    []*repo.Entry `yaml:"helmRepos"`
-	ReadTimeout  time.Duration `yaml:"readTimeout"`
-	WriteTimeout time.Duration `yaml:"writeTimeout"`
-}
-
 var (
-	settings          = cli.New()
-	defaultUploadPath = "/tmp/charts"
-	helmConfig        = &HelmConfig{}
-	listenHost        string
-	listenPort        string
-	config            string
+	listenHost string
+	listenPort string
+	config     string
 )
 
 func init() {
@@ -55,13 +46,13 @@ func main() {
 	})
 
 	// register router
-	RegisterRouter(router)
+	routers.RegisterRouter(router)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", listenHost, listenPort),
 		Handler:      router,
-		ReadTimeout:  helmConfig.ReadTimeout * time.Second,
-		WriteTimeout: helmConfig.WriteTimeout * time.Second,
+		ReadTimeout:  global.MyHelmConfig.ReadTimeout * time.Second,
+		WriteTimeout: global.MyHelmConfig.WriteTimeout * time.Second,
 	}
 
 	go func() {
@@ -88,13 +79,13 @@ func main() {
 func setupFlag() error {
 	err := flag.Set("logtostderr", "true")
 	if err != nil {
-		glog.Fatalln(err)
+		glog.Fatalf("setupFlag set logtostderr err: %v", err)
 	}
 	pflag.CommandLine.StringVar(&listenHost, "addr", "0.0.0.0", "server listen addr")
 	pflag.CommandLine.StringVar(&listenPort, "port", "8080", "server listen port")
 	pflag.CommandLine.StringVar(&config, "config", "config/config.yaml", "helm wrapper config")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	settings.AddFlags(pflag.CommandLine)
+	global.HelmClientSettings.AddFlags(pflag.CommandLine)
 	pflag.Parse()
 	defer glog.Flush()
 
@@ -104,38 +95,38 @@ func setupFlag() error {
 func setupConfig() error {
 	configBody, err := ioutil.ReadFile(config)
 	if err != nil {
-		glog.Fatalln(err)
+		glog.Fatalf("setupConfig ReadFile config file err: %v", err)
 	}
-	err = yaml.Unmarshal(configBody, helmConfig)
+	err = yaml.Unmarshal(configBody, global.MyHelmConfig)
 	if err != nil {
-		glog.Fatalln(err)
+		glog.Fatalf("setupConfig Unmarshal config err: %v", err)
 	}
 
 	// 初始化上传路径
-	if helmConfig.UploadPath == "" {
-		helmConfig.UploadPath = defaultUploadPath
+	if global.MyHelmConfig.UploadPath == "" {
+		global.MyHelmConfig.UploadPath = global.DefaultUploadPath
 	} else {
-		if !filepath.IsAbs(helmConfig.UploadPath) {
+		if !filepath.IsAbs(global.MyHelmConfig.UploadPath) {
 			glog.Fatalln("charts upload path is not absolute")
 		}
 	}
-	_, err = os.Stat(helmConfig.UploadPath)
+	_, err = os.Stat(global.MyHelmConfig.UploadPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(helmConfig.UploadPath, 0755)
+			err = os.MkdirAll(global.MyHelmConfig.UploadPath, 0755)
 			if err != nil {
-				glog.Fatalln(err)
+				glog.Fatalf("setupConfig Mkdir upload err: %v", err)
 			}
 		} else {
-			glog.Fatalln(err)
+			glog.Fatalf("setupConfig upload filepath stat err: %v", err)
 		}
 	}
 
 	// 初始化chart repo
-	for _, c := range helmConfig.HelmRepos {
-		err = initRepository(c)
+	for _, c := range global.MyHelmConfig.HelmRepos {
+		err = service.InitRepository(c)
 		if err != nil {
-			glog.Fatalln(err)
+			glog.Fatalf("setupConfig initRepository err: %v", err)
 		}
 	}
 

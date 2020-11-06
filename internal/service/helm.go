@@ -1,6 +1,7 @@
-package main
+package service
 
 import (
+	"helm-wrapper/global"
 	"os"
 
 	"github.com/golang/glog"
@@ -20,17 +21,17 @@ func InitKubeInformation(namespace, context string) *KubeInformation {
 	}
 }
 
-func actionConfigInit(kubeInfo *KubeInformation) (*action.Configuration, error) {
+func ActionConfigInit(kubeInfo *KubeInformation) (*action.Configuration, error) {
 	actionConfig := new(action.Configuration)
 	if kubeInfo.AimContext == "" {
-		kubeInfo.AimContext = settings.KubeContext
+		kubeInfo.AimContext = global.HelmClientSettings.KubeContext
 	}
-	clientConfig := kube.GetConfig(settings.KubeConfig, kubeInfo.AimContext, kubeInfo.AimNamespace)
-	if settings.KubeToken != "" {
-		clientConfig.BearerToken = &settings.KubeToken
+	clientConfig := kube.GetConfig(global.HelmClientSettings.KubeConfig, kubeInfo.AimContext, kubeInfo.AimNamespace)
+	if global.HelmClientSettings.KubeToken != "" {
+		clientConfig.BearerToken = &global.HelmClientSettings.KubeToken
 	}
-	if settings.KubeAPIServer != "" {
-		clientConfig.APIServer = &settings.KubeAPIServer
+	if global.HelmClientSettings.KubeAPIServer != "" {
+		clientConfig.APIServer = &global.HelmClientSettings.KubeAPIServer
 	}
 	err := actionConfig.Init(clientConfig, kubeInfo.AimNamespace, os.Getenv("HELM_DRIVER"), glog.Infof)
 	if err != nil {

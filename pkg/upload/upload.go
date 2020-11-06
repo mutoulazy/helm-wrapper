@@ -1,7 +1,9 @@
-package main
+package upload
 
 import (
 	"fmt"
+	"helm-wrapper/global"
+	"helm-wrapper/pkg/app"
 	"io"
 	"io/ioutil"
 	"os"
@@ -10,41 +12,41 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func uploadChart(c *gin.Context) {
+func UploadChart(c *gin.Context) {
 	file, header, err := c.Request.FormFile("chart")
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	filename := header.Filename
 	t := strings.Split(filename, ".")
 	if t[len(t)-1] != "tgz" {
-		respErr(c, fmt.Errorf("chart file suffix must .tgz"))
+		app.RespErr(c, fmt.Errorf("chart file suffix must .tgz"))
 		return
 	}
 
-	out, err := os.Create(helmConfig.UploadPath + "/" + filename)
+	out, err := os.Create(global.MyHelmConfig.UploadPath + "/" + filename)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	defer out.Close()
 
 	_, err = io.Copy(out, file)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
-	respOK(c, nil)
+	app.RespOK(c, nil)
 }
 
-func listUploadedCharts(c *gin.Context) {
+func ListUploadedCharts(c *gin.Context) {
 	charts := []string{}
-	files, err := ioutil.ReadDir(helmConfig.UploadPath)
+	files, err := ioutil.ReadDir(global.MyHelmConfig.UploadPath)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	for _, f := range files {
@@ -54,5 +56,5 @@ func listUploadedCharts(c *gin.Context) {
 		}
 	}
 
-	respOK(c, charts)
+	app.RespOK(c, charts)
 }

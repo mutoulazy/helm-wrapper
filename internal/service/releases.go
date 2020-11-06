@@ -1,7 +1,9 @@
-package main
+package service
 
 import (
 	"fmt"
+	"helm-wrapper/global"
+	"helm-wrapper/pkg/app"
 	"io"
 	"os"
 	"strconv"
@@ -194,7 +196,7 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
 }
 
-func showReleaseInfo(c *gin.Context) {
+func ShowReleaseInfo(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	info := c.Query("info")
@@ -205,83 +207,83 @@ func showReleaseInfo(c *gin.Context) {
 		infoMap[i] = true
 	}
 	if _, ok := infoMap[info]; !ok {
-		respErr(c, fmt.Errorf("bad info %s, release info only support all/hooks/manifest/notes/values", info))
+		app.RespErr(c, fmt.Errorf("bad info %s, release info only support all/hooks/manifest/notes/values", info))
 		return
 	}
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	if info == "values" {
 		client := action.NewGetValues(actionConfig)
 		results, err := client.Run(name)
 		if err != nil {
-			respErr(c, err)
+			app.RespErr(c, err)
 			return
 		}
-		respOK(c, results)
+		app.RespOK(c, results)
 		return
 	}
 
 	client := action.NewGet(actionConfig)
 	results, err := client.Run(name)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	if info == "all" {
 		results.Chart = nil
-		respOK(c, results)
+		app.RespOK(c, results)
 		return
 	} else if info == "hooks" {
 		if len(results.Hooks) < 1 {
-			respOK(c, []*release.Hook{})
+			app.RespOK(c, []*release.Hook{})
 			return
 		}
-		respOK(c, results.Hooks)
+		app.RespOK(c, results.Hooks)
 		return
 	} else if info == "manifest" {
-		respOK(c, results.Manifest)
+		app.RespOK(c, results.Manifest)
 		return
 	} else if info == "notes" {
-		respOK(c, results.Info.Notes)
+		app.RespOK(c, results.Info.Notes)
 		return
 	}
 }
 
-func installRelease(c *gin.Context) {
+func InstallRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	aimChart := c.Query("chart")
 	kubeContext := c.Query("kube_context")
 	if aimChart == "" {
-		respErr(c, fmt.Errorf("chart name can not be empty"))
+		app.RespErr(c, fmt.Errorf("chart name can not be empty"))
 		return
 	}
 
 	// install with local uploaded charts, *.tgz
 	splitChart := strings.Split(aimChart, ".")
 	if splitChart[len(splitChart)-1] == "tgz" {
-		aimChart = helmConfig.UploadPath + "/" + aimChart
+		aimChart = global.MyHelmConfig.UploadPath + "/" + aimChart
 	}
 
 	var options releaseOptions
 	err := c.ShouldBindJSON(&options)
 	if err != nil && err != io.EOF {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	vals, err := mergeValues(options)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	client := action.NewInstall(actionConfig)
@@ -301,21 +303,21 @@ func installRelease(c *gin.Context) {
 	client.CreateNamespace = options.CreateNamespace
 	client.DependencyUpdate = options.DependencyUpdate
 
-	cp, err := client.ChartPathOptions.LocateChart(aimChart, settings)
+	cp, err := client.ChartPathOptions.LocateChart(aimChart, global.HelmClientSettings)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	validInstallableChart, err := isChartInstallable(chartRequested)
 	if !validInstallableChart {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
@@ -329,16 +331,16 @@ func installRelease(c *gin.Context) {
 					ChartPath:        cp,
 					Keyring:          client.ChartPathOptions.Keyring,
 					SkipUpdate:       false,
-					Getters:          getter.All(settings),
-					RepositoryConfig: settings.RepositoryConfig,
-					RepositoryCache:  settings.RepositoryCache,
+					Getters:          getter.All(global.HelmClientSettings),
+					RepositoryConfig: global.HelmClientSettings.RepositoryConfig,
+					RepositoryCache:  global.HelmClientSettings.RepositoryCache,
 				}
 				if err := man.Update(); err != nil {
-					respErr(c, err)
+					app.RespErr(c, err)
 					return
 				}
 			} else {
-				respErr(c, err)
+				app.RespErr(c, err)
 				return
 			}
 		}
@@ -346,89 +348,89 @@ func installRelease(c *gin.Context) {
 
 	_, err = client.Run(chartRequested, vals)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
-	respOK(c, nil)
+	app.RespOK(c, nil)
 }
 
-func uninstallRelease(c *gin.Context) {
+func UninstallRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	client := action.NewUninstall(actionConfig)
 	_, err = client.Run(name)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
-	respOK(c, nil)
+	app.RespOK(c, nil)
 }
 
-func rollbackRelease(c *gin.Context) {
+func RollbackRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	reversionStr := c.Param("reversion")
 	kubeContext := c.Query("kube_context")
 	reversion, err := strconv.Atoi(reversionStr)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	client := action.NewRollback(actionConfig)
 	client.Version = reversion
 	err = client.Run(name)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
-	respOK(c, nil)
+	app.RespOK(c, nil)
 }
 
-func upgradeRelease(c *gin.Context) {
+func UpgradeRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	aimChart := c.Query("chart")
 	kubeContext := c.Query("kube_context")
 	if aimChart == "" {
-		respErr(c, fmt.Errorf("chart name can not be empty"))
+		app.RespErr(c, fmt.Errorf("chart name can not be empty"))
 		return
 	}
 
 	// upgrade with local uploaded charts *.tgz
 	splitChart := strings.Split(aimChart, ".")
 	if splitChart[len(splitChart)-1] == "tgz" {
-		aimChart = helmConfig.UploadPath + "/" + aimChart
+		aimChart = global.MyHelmConfig.UploadPath + "/" + aimChart
 	}
 
 	var options releaseOptions
 	err := c.ShouldBindJSON(&options)
 	if err != nil && err != io.EOF {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	vals, err := mergeValues(options)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	client := action.NewUpgrade(actionConfig)
@@ -449,45 +451,45 @@ func upgradeRelease(c *gin.Context) {
 	client.Recreate = options.Recreate
 	client.CleanupOnFail = options.CleanupOnFail
 
-	cp, err := client.ChartPathOptions.LocateChart(aimChart, settings)
+	cp, err := client.ChartPathOptions.LocateChart(aimChart, global.HelmClientSettings)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	if req := chartRequested.Metadata.Dependencies; req != nil {
 		if err := action.CheckDependencies(chartRequested, req); err != nil {
-			respErr(c, err)
+			app.RespErr(c, err)
 			return
 		}
 	}
 
 	_, err = client.Run(name, chartRequested, vals)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
-	respOK(c, nil)
+	app.RespOK(c, nil)
 }
 
-func listReleases(c *gin.Context) {
+func ListReleases(c *gin.Context) {
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 	var options releaseListOptions
 	err := c.ShouldBindJSON(&options)
 	if err != nil && err != io.EOF {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
@@ -497,9 +499,9 @@ func listReleases(c *gin.Context) {
 	client.All = options.All
 	client.AllNamespaces = options.AllNamespaces
 	if client.AllNamespaces {
-		err = actionConfig.Init(settings.RESTClientGetter(), "", os.Getenv("HELM_DRIVER"), glog.Infof)
+		err = actionConfig.Init(global.HelmClientSettings.RESTClientGetter(), "", os.Getenv("HELM_DRIVER"), glog.Infof)
 		if err != nil {
-			respErr(c, err)
+			app.RespErr(c, err)
 			return
 		}
 	}
@@ -518,7 +520,7 @@ func listReleases(c *gin.Context) {
 
 	results, err := client.Run()
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
@@ -528,52 +530,52 @@ func listReleases(c *gin.Context) {
 		elements = append(elements, constructReleaseElement(r, false))
 	}
 
-	respOK(c, elements)
+	app.RespOK(c, elements)
 }
 
-func getReleaseStatus(c *gin.Context) {
+func GetReleaseStatus(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	client := action.NewStatus(actionConfig)
 	results, err := client.Run(name)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	element := constructReleaseElement(results, true)
 
-	respOK(c, &element)
+	app.RespOK(c, &element)
 }
 
-func listReleaseHistories(c *gin.Context) {
+func ListReleaseHistories(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 
-	actionConfig, err := actionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	client := action.NewHistory(actionConfig)
 	results, err := client.Run(name)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 	if len(results) == 0 {
-		respOK(c, &releaseHistory{})
+		app.RespOK(c, &releaseHistory{})
 		return
 	}
 
-	respOK(c, getReleaseHistory(results))
+	app.RespOK(c, getReleaseHistory(results))
 }

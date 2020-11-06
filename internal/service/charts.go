@@ -1,7 +1,9 @@
-package main
+package service
 
 import (
 	"fmt"
+	"helm-wrapper/global"
+	"helm-wrapper/pkg/app"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -28,16 +30,16 @@ func findReadme(files []*chart.File) (file *chart.File) {
 	return nil
 }
 
-func showChartInfo(c *gin.Context) {
+func ShowChartInfo(c *gin.Context) {
 	name := c.Query("chart")
 	if name == "" {
-		respErr(c, fmt.Errorf("chart name can not be empty"))
+		app.RespErr(c, fmt.Errorf("chart name can not be empty"))
 		return
 	}
 	// local charts with abs path *.tgz
 	splitChart := strings.Split(name, ".")
 	if splitChart[len(splitChart)-1] == "tgz" {
-		name = helmConfig.UploadPath + "/" + name
+		name = global.MyHelmConfig.UploadPath + "/" + name
 	}
 
 	info := c.Query("info") // readme, values, chart
@@ -52,24 +54,24 @@ func showChartInfo(c *gin.Context) {
 	} else if info == string(action.ShowValues) {
 		client.OutputFormat = action.ShowValues
 	} else {
-		respErr(c, fmt.Errorf("bad info %s, chart info only support readme/values/chart", info))
+		app.RespErr(c, fmt.Errorf("bad info %s, chart info only support readme/values/chart", info))
 		return
 	}
 
-	cp, err := client.ChartPathOptions.LocateChart(name, settings)
+	cp, err := client.ChartPathOptions.LocateChart(name, global.HelmClientSettings)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	chrt, err := loader.Load(cp)
 	if err != nil {
-		respErr(c, err)
+		app.RespErr(c, err)
 		return
 	}
 
 	if client.OutputFormat == action.ShowChart {
-		respOK(c, chrt.Metadata)
+		app.RespOK(c, chrt.Metadata)
 		return
 	}
 	if client.OutputFormat == action.ShowValues {
@@ -80,11 +82,11 @@ func showChartInfo(c *gin.Context) {
 				Data: string(v.Data),
 			})
 		}
-		respOK(c, values)
+		app.RespOK(c, values)
 		return
 	}
 	if client.OutputFormat == action.ShowReadme {
-		respOK(c, string(findReadme(chrt.Files).Data))
+		app.RespOK(c, string(findReadme(chrt.Files).Data))
 		return
 	}
 }
