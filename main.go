@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/pflag"
 	"helm-wrapper/global"
 	"helm-wrapper/internal/routers"
-	"helm-wrapper/internal/service"
+	"helm-wrapper/internal/routers/api/v1"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -124,7 +124,7 @@ func setupConfig() error {
 
 	// 初始化chart repo
 	for _, c := range global.MyHelmConfig.HelmRepos {
-		err = service.InitRepository(c)
+		err = v1.NewRepository().InitRepository(c)
 		if err != nil {
 			glog.Fatalf("setupConfig initRepository err: %v", err)
 		}

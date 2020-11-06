@@ -2,55 +2,32 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
-	"helm-wrapper/internal/service"
-	"helm-wrapper/pkg/upload"
+	"helm-wrapper/internal/routers/api/v1"
 )
 
 func RegisterRouter(router *gin.Engine) {
-	// helm env
-	envs := router.Group("/api/envs")
+	env := v1.NewEnv()
+	repository := v1.NewRepository()
+	chart := v1.NewChart()
+	release := v1.NewRelease()
+	apiv1 := router.Group("/api/v1")
 	{
-		envs.GET("", service.GetHelmEnvs)
-	}
+		apiv1.GET("/envs", env.GetHelmEnvs)
 
-	// helm repo
-	repositories := router.Group("/api/repositories")
-	{
-		// helm search repo
-		repositories.GET("/charts", service.ListRepoCharts)
-		// helm repo update
-		repositories.PUT("", service.UpdateRepositories)
-	}
+		apiv1.GET("/repositories/charts", repository.ListRepoCharts)
+		apiv1.PUT("/repositories", repository.UpdateRepositories)
 
-	// helm chart
-	charts := router.Group("/api/charts")
-	{
-		// helm show
-		charts.GET("", service.ShowChartInfo)
-		// upload chart
-		charts.POST("/upload", upload.UploadChart)
-		// list uploaded charts
-		charts.GET("/upload", upload.ListUploadedCharts)
-	}
+		apiv1.GET("/charts", chart.ShowChartInfo)
+		apiv1.POST("/charts/upload", UploadChart)
+		apiv1.GET("/charts/upload", ListUploadedCharts)
 
-	// helm release
-	releases := router.Group("/api/namespaces/:namespace/releases")
-	{
-		// helm list releases ->  helm list
-		releases.GET("", service.ListReleases)
-		// helm get
-		releases.GET("/:release", service.ShowReleaseInfo)
-		// helm install
-		releases.POST("/:release", service.InstallRelease)
-		// helm upgrade
-		releases.PUT("/:release", service.UpgradeRelease)
-		// helm uninstall
-		releases.DELETE("/:release", service.UninstallRelease)
-		// helm rollback
-		releases.PUT("/:release/versions/:reversion", service.RollbackRelease)
-		// helm status <RELEASE_NAME>
-		releases.GET("/:release/status", service.GetReleaseStatus)
-		// helm release history
-		releases.GET("/:release/histories", service.ListReleaseHistories)
+		apiv1.GET("/namespaces/:namespace/releases", release.ListReleases)
+		apiv1.GET("/namespaces/:namespace/releases/:release", release.ShowReleaseInfo)
+		apiv1.POST("/namespaces/:namespace/releases/:release", release.InstallRelease)
+		apiv1.PUT("/namespaces/:namespace/releases/:release", release.UpgradeRelease)
+		apiv1.DELETE("/namespaces/:namespace/releases/:release", release.UninstallRelease)
+		apiv1.PUT("/namespaces/:namespace/releases/:release/versions/:reversion", release.RollbackRelease)
+		apiv1.GET("/namespaces/:namespace/releases/:release/status", release.GetReleaseStatus)
+		apiv1.GET("/namespaces/:namespace/releases/:release/histories", release.ListReleaseHistories)
 	}
 }

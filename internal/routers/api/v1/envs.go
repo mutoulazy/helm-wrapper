@@ -1,4 +1,4 @@
-package service
+package v1
 
 import (
 	"github.com/gin-gonic/gin"
@@ -6,6 +6,13 @@ import (
 	"helm-wrapper/pkg/app"
 )
 
-func GetHelmEnvs(c *gin.Context) {
+type Env struct {
+}
+
+func NewEnv() Env {
+	return Env{}
+}
+
+func (e Env) GetHelmEnvs(c *gin.Context) {
 	app.RespOK(c, global.HelmClientSettings.EnvVars())
 }

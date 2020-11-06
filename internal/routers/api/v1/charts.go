@@ -1,4 +1,4 @@
-package service
+package v1
 
 import (
 	"fmt"
@@ -11,6 +11,13 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 )
+
+type Chart struct {
+}
+
+func NewChart() Chart {
+	return Chart{}
+}
 
 var readmeFileNames = []string{"readme.md", "readme.txt", "readme"}
 
@@ -30,7 +37,7 @@ func findReadme(files []*chart.File) (file *chart.File) {
 	return nil
 }
 
-func ShowChartInfo(c *gin.Context) {
+func (chart Chart) ShowChartInfo(c *gin.Context) {
 	name := c.Query("chart")
 	if name == "" {
 		app.RespErr(c, fmt.Errorf("chart name can not be empty"))

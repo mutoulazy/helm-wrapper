@@ -1,8 +1,9 @@
-package service
+package v1
 
 import (
 	"fmt"
 	"helm-wrapper/global"
+	"helm-wrapper/internal/service"
 	"helm-wrapper/pkg/app"
 	"io"
 	"os"
@@ -23,6 +24,13 @@ import (
 	helmtime "helm.sh/helm/v3/pkg/time"
 	"sigs.k8s.io/yaml"
 )
+
+type Release struct {
+}
+
+func NewRelease() Release {
+	return Release{}
+}
 
 type releaseInfo struct {
 	Revision    int           `json:"revision"`
@@ -196,7 +204,7 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
 }
 
-func ShowReleaseInfo(c *gin.Context) {
+func (rel Release) ShowReleaseInfo(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	info := c.Query("info")
@@ -210,7 +218,7 @@ func ShowReleaseInfo(c *gin.Context) {
 		app.RespErr(c, fmt.Errorf("bad info %s, release info only support all/hooks/manifest/notes/values", info))
 		return
 	}
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -252,7 +260,7 @@ func ShowReleaseInfo(c *gin.Context) {
 	}
 }
 
-func InstallRelease(c *gin.Context) {
+func (rel Release) InstallRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	aimChart := c.Query("chart")
@@ -281,7 +289,7 @@ func InstallRelease(c *gin.Context) {
 		return
 	}
 
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -355,12 +363,12 @@ func InstallRelease(c *gin.Context) {
 	app.RespOK(c, nil)
 }
 
-func UninstallRelease(c *gin.Context) {
+func (rel Release) UninstallRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -375,7 +383,7 @@ func UninstallRelease(c *gin.Context) {
 	app.RespOK(c, nil)
 }
 
-func RollbackRelease(c *gin.Context) {
+func (rel Release) RollbackRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	reversionStr := c.Param("reversion")
@@ -386,7 +394,7 @@ func RollbackRelease(c *gin.Context) {
 		return
 	}
 
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -401,7 +409,7 @@ func RollbackRelease(c *gin.Context) {
 	app.RespOK(c, nil)
 }
 
-func UpgradeRelease(c *gin.Context) {
+func (rel Release) UpgradeRelease(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	aimChart := c.Query("chart")
@@ -428,7 +436,7 @@ func UpgradeRelease(c *gin.Context) {
 		app.RespErr(c, err)
 		return
 	}
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -478,7 +486,7 @@ func UpgradeRelease(c *gin.Context) {
 	app.RespOK(c, nil)
 }
 
-func ListReleases(c *gin.Context) {
+func (rel Release) ListReleases(c *gin.Context) {
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 	var options releaseListOptions
@@ -487,7 +495,7 @@ func ListReleases(c *gin.Context) {
 		app.RespErr(c, err)
 		return
 	}
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -533,12 +541,12 @@ func ListReleases(c *gin.Context) {
 	app.RespOK(c, elements)
 }
 
-func GetReleaseStatus(c *gin.Context) {
+func (rel Release) GetReleaseStatus(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return
@@ -555,12 +563,12 @@ func GetReleaseStatus(c *gin.Context) {
 	app.RespOK(c, &element)
 }
 
-func ListReleaseHistories(c *gin.Context) {
+func (rel Release) ListReleaseHistories(c *gin.Context) {
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	kubeContext := c.Query("kube_context")
 
-	actionConfig, err := ActionConfigInit(InitKubeInformation(namespace, kubeContext))
+	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
 		app.RespErr(c, err)
 		return

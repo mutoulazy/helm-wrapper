@@ -1,4 +1,4 @@
-package service
+package v1
 
 import (
 	"context"
@@ -25,6 +25,13 @@ import (
 )
 
 const searchMaxScore = 25
+
+type Repository struct {
+}
+
+func NewRepository() Repository {
+	return Repository{}
+}
 
 type repoChartElement struct {
 	Name        string `json:"name"`
@@ -79,7 +86,7 @@ func buildSearchIndex(version string) (*search.Index, error) {
 	return i, nil
 }
 
-func InitRepository(c *repo.Entry) error {
+func (rep Repository) InitRepository(c *repo.Entry) error {
 	// Ensure the file directory exists as it is required for file locking
 	err := os.MkdirAll(filepath.Dir(global.HelmClientSettings.RepositoryConfig), os.ModePerm)
 	if err != nil && !os.IsExist(err) {
@@ -139,7 +146,7 @@ func updateChart(c *repo.Entry) error {
 	return nil
 }
 
-func UpdateRepositories(c *gin.Context) {
+func (rep Repository) UpdateRepositories(c *gin.Context) {
 	type errRepo struct {
 		Name string
 		Err  string
@@ -170,7 +177,7 @@ func UpdateRepositories(c *gin.Context) {
 	app.RespOK(c, nil)
 }
 
-func ListRepoCharts(c *gin.Context) {
+func (rep Repository) ListRepoCharts(c *gin.Context) {
 	version := c.Query("version")   // chart version
 	versions := c.Query("versions") // if "true", all versions
 	keyword := c.Query("keyword")   // search keyword
