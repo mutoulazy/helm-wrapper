@@ -1,3 +1,5 @@
+writeTimeout: 60
+readTimeout: 60
 uploadPath: /tmp/charts
 helmRepos:
 #  - name: bitnami
