@@ -16,7 +16,7 @@ build-linux:
 build-docker:
 # docker镜像采用scratch最小化镜像构建,所以采取静态编译方法构建程序,不依赖任何动态链接库
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -ldflags '-s -w -extldflags "-static"' -o ${BINARY_NAME}
-	docker build -t helm-proxy:v1 .
+	docker build -t helm-wrapper:v1 .
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCILINT)
