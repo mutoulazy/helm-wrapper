@@ -5,6 +5,7 @@ import (
 	"helm-wrapper/global"
 	"helm-wrapper/internal/service"
 	"helm-wrapper/pkg/app"
+	"helm-wrapper/pkg/errcode"
 	"io"
 	"os"
 	"strconv"
@@ -205,6 +206,7 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 }
 
 func (rel Release) ShowReleaseInfo(c *gin.Context) {
+	response := app.NewResponse(c)
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	info := c.Query("info")
@@ -215,58 +217,59 @@ func (rel Release) ShowReleaseInfo(c *gin.Context) {
 		infoMap[i] = true
 	}
 	if _, ok := infoMap[info]; !ok {
-		app.RespErr(c, fmt.Errorf("bad info %s, release info only support all/hooks/manifest/notes/values", info))
+		response.ToErrorResponse(errcode.InvalidParams.WithDetails(fmt.Sprintf("bad info %s, release info only support all/hooks/manifest/notes/values", info)))
 		return
 	}
 	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorShowReleaseInfoFail.WithDetails(err.Error()))
 		return
 	}
 	if info == "values" {
 		client := action.NewGetValues(actionConfig)
 		results, err := client.Run(name)
 		if err != nil {
-			app.RespErr(c, err)
+			response.ToErrorResponse(errcode.ErrorShowReleaseInfoFail.WithDetails(err.Error()))
 			return
 		}
-		app.RespOK(c, results)
+		response.ToResponse(gin.H{"values": results})
 		return
 	}
 
 	client := action.NewGet(actionConfig)
 	results, err := client.Run(name)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorShowReleaseInfoFail.WithDetails(err.Error()))
 		return
 	}
 	if info == "all" {
 		results.Chart = nil
-		app.RespOK(c, results)
+		response.ToResponse(gin.H{"all": results})
 		return
 	} else if info == "hooks" {
 		if len(results.Hooks) < 1 {
-			app.RespOK(c, []*release.Hook{})
+			response.ToResponse(gin.H{"hooks": []*release.Hook{}})
 			return
 		}
-		app.RespOK(c, results.Hooks)
+		response.ToResponse(gin.H{"hooks": results.Hooks})
 		return
 	} else if info == "manifest" {
-		app.RespOK(c, results.Manifest)
+		response.ToResponse(gin.H{"manifest": results.Manifest})
 		return
 	} else if info == "notes" {
-		app.RespOK(c, results.Info.Notes)
+		response.ToResponse(gin.H{"notes": results.Info.Notes})
 		return
 	}
 }
 
 func (rel Release) InstallRelease(c *gin.Context) {
+	response := app.NewResponse(c)
 	name := c.Param("release")
 	namespace := c.Param("namespace")
 	aimChart := c.Query("chart")
 	kubeContext := c.Query("kube_context")
 	if aimChart == "" {
-		app.RespErr(c, fmt.Errorf("chart name can not be empty"))
+		response.ToErrorResponse(errcode.InvalidParams.WithDetails("chart name can not be empty"))
 		return
 	}
 
@@ -279,19 +282,19 @@ func (rel Release) InstallRelease(c *gin.Context) {
 	var options releaseOptions
 	err := c.ShouldBindJSON(&options)
 	if err != nil && err != io.EOF {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 
 	vals, err := mergeValues(options)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 
 	actionConfig, err := service.ActionConfigInit(service.InitKubeInformation(namespace, kubeContext))
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 	client := action.NewInstall(actionConfig)
@@ -313,19 +316,19 @@ func (rel Release) InstallRelease(c *gin.Context) {
 
 	cp, err := client.ChartPathOptions.LocateChart(aimChart, global.HelmClientSettings)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 
 	validInstallableChart, err := isChartInstallable(chartRequested)
 	if !validInstallableChart {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 
@@ -344,11 +347,11 @@ func (rel Release) InstallRelease(c *gin.Context) {
 					RepositoryCache:  global.HelmClientSettings.RepositoryCache,
 				}
 				if err := man.Update(); err != nil {
-					app.RespErr(c, err)
+					response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 					return
 				}
 			} else {
-				app.RespErr(c, err)
+				response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 				return
 			}
 		}
@@ -356,11 +359,11 @@ func (rel Release) InstallRelease(c *gin.Context) {
 
 	_, err = client.Run(chartRequested, vals)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
 		return
 	}
 
-	app.RespOK(c, nil)
+	response.ToResponse(gin.H{"msg": "success"})
 }
 
 func (rel Release) UninstallRelease(c *gin.Context) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"helm-wrapper/global"
 	"helm-wrapper/pkg/app"
+	"helm-wrapper/pkg/errcode"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -38,9 +39,10 @@ func findReadme(files []*chart.File) (file *chart.File) {
 }
 
 func (chart Chart) ShowChartInfo(c *gin.Context) {
+	response := app.NewResponse(c)
 	name := c.Query("chart")
 	if name == "" {
-		app.RespErr(c, fmt.Errorf("chart name can not be empty"))
+		response.ToErrorResponse(errcode.InvalidParams.WithDetails("chart name can not be empty"))
 		return
 	}
 	// local charts with abs path *.tgz
@@ -61,24 +63,24 @@ func (chart Chart) ShowChartInfo(c *gin.Context) {
 	} else if info == string(action.ShowValues) {
 		client.OutputFormat = action.ShowValues
 	} else {
-		app.RespErr(c, fmt.Errorf("bad info %s, chart info only support readme/values/chart", info))
+		response.ToErrorResponse(errcode.InvalidParams.WithDetails(fmt.Sprintf("bad info %s, chart info only support readme/values/chart", info)))
 		return
 	}
 
 	cp, err := client.ChartPathOptions.LocateChart(name, global.HelmClientSettings)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorShowChartInfoFail.WithDetails(err.Error()))
 		return
 	}
 
 	chrt, err := loader.Load(cp)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorShowChartInfoFail.WithDetails(err.Error()))
 		return
 	}
 
 	if client.OutputFormat == action.ShowChart {
-		app.RespOK(c, chrt.Metadata)
+		response.ToResponse(gin.H{"chart": chrt.Metadata})
 		return
 	}
 	if client.OutputFormat == action.ShowValues {
@@ -89,11 +91,11 @@ func (chart Chart) ShowChartInfo(c *gin.Context) {
 				Data: string(v.Data),
 			})
 		}
-		app.RespOK(c, values)
+		response.ToResponse(gin.H{"values": values})
 		return
 	}
 	if client.OutputFormat == action.ShowReadme {
-		app.RespOK(c, string(findReadme(chrt.Files).Data))
+		response.ToResponse(gin.H{"readme": string(findReadme(chrt.Files).Data)})
 		return
 	}
 }

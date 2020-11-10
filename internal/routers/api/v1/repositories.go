@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"helm-wrapper/global"
 	"helm-wrapper/pkg/app"
+	"helm-wrapper/pkg/errcode"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -147,6 +148,7 @@ func updateChart(c *repo.Entry) error {
 }
 
 func (rep Repository) UpdateRepositories(c *gin.Context) {
+	response := app.NewResponse(c)
 	type errRepo struct {
 		Name string
 		Err  string
@@ -170,14 +172,16 @@ func (rep Repository) UpdateRepositories(c *gin.Context) {
 	wg.Wait()
 
 	if len(errRepoList) > 0 {
-		app.RespErr(c, fmt.Errorf("error list: %v", errRepoList))
+		response.ToErrorResponse(errcode.ErrorUpdateRepositoriesFail.WithDetails(fmt.Sprintf("error list: %v", errRepoList)))
 		return
 	}
 
-	app.RespOK(c, nil)
+	response.ToResponse(gin.H{"msg": "success"})
+	return
 }
 
 func (rep Repository) ListRepoCharts(c *gin.Context) {
+	response := app.NewResponse(c)
 	version := c.Query("version")   // chart version
 	versions := c.Query("versions") // if "true", all versions
 	keyword := c.Query("keyword")   // search keyword
@@ -189,7 +193,7 @@ func (rep Repository) ListRepoCharts(c *gin.Context) {
 
 	index, err := buildSearchIndex(version)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorListRepoChartsFail.WithDetails(err.Error()))
 		return
 	}
 
@@ -199,7 +203,7 @@ func (rep Repository) ListRepoCharts(c *gin.Context) {
 	} else {
 		res, err = index.Search(keyword, searchMaxScore, false)
 		if err != nil {
-			app.RespErr(c, err)
+			response.ToErrorResponse(errcode.ErrorListRepoChartsFail.WithDetails(err.Error()))
 			return
 		}
 	}
@@ -211,7 +215,7 @@ func (rep Repository) ListRepoCharts(c *gin.Context) {
 	}
 	data, err := applyConstraint(version, versionsB, res)
 	if err != nil {
-		app.RespErr(c, err)
+		response.ToErrorResponse(errcode.ErrorListRepoChartsFail.WithDetails(err.Error()))
 		return
 	}
 	chartList := make(repoChartList, 0, len(data))
@@ -224,7 +228,7 @@ func (rep Repository) ListRepoCharts(c *gin.Context) {
 		})
 	}
 
-	app.RespOK(c, chartList)
+	response.ToResponse(gin.H{"chartList": chartList})
 }
 
 func SafeCloser(fileLock *flock.Flock, err *error) {

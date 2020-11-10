@@ -14,5 +14,7 @@ func NewEnv() Env {
 }
 
 func (e Env) GetHelmEnvs(c *gin.Context) {
-	app.RespOK(c, global.HelmClientSettings.EnvVars())
+	response := app.NewResponse(c)
+	response.ToResponse(gin.H{"envs": global.HelmClientSettings.EnvVars()})
+	return
 }
