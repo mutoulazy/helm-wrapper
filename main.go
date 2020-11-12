@@ -5,10 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"github.com/spf13/pflag"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"helm-wrapper/global"
 	"helm-wrapper/internal/routers"
 	"helm-wrapper/internal/routers/api/v1"
+	"helm-wrapper/pkg/logger"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,6 +38,10 @@ func init() {
 	err = setupConfig()
 	if err != nil {
 		glog.Fatalf("加载配置文件失败: %v", err)
+	}
+	err = setupLogger()
+	if err != nil {
+		glog.Fatalf("加载日志文件失败: %v", err)
 	}
 }
 
@@ -131,4 +138,15 @@ func setupConfig() error {
 	}
 
 	return err
+}
+
+func setupLogger() error {
+	fileName := global.MyHelmConfig.LogSavePath + "/" + global.MyHelmConfig.LogFileName + global.MyHelmConfig.LogFileExt
+	global.Logger = logger.NewLogger(&lumberjack.Logger{
+		Filename:  fileName,
+		MaxSize:   600,
+		MaxAge:    10,
+		LocalTime: true,
+	}, "", log.LstdFlags).WithCaller(2)
+	return nil
 }

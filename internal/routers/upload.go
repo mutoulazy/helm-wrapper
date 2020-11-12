@@ -17,6 +17,7 @@ func UploadChart(c *gin.Context) {
 	response := app.NewResponse(c)
 	file, header, err := c.Request.FormFile("chart")
 	if err != nil {
+		global.Logger.Error(c, "no chart file")
 		response.ToErrorResponse(errcode.InvalidParams.WithDetails(err.Error()))
 		return
 	}
@@ -24,6 +25,7 @@ func UploadChart(c *gin.Context) {
 	filename := header.Filename
 	t := strings.Split(filename, ".")
 	if t[len(t)-1] != "tgz" {
+		global.Logger.Error(c, "chart file suffix must .tgz")
 		response.ToErrorResponse(errcode.InvalidParams.WithDetails(fmt.Sprintf("chart file suffix must .tgz")))
 		return
 	}
