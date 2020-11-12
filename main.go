@@ -25,9 +25,13 @@ import (
 )
 
 var (
-	listenHost string
-	listenPort string
-	config     string
+	isVersion    bool
+	listenHost   string
+	listenPort   string
+	config       string
+	buildTime    string
+	buildVersion string
+	gitCommitID  string
 )
 
 func init() {
@@ -46,10 +50,18 @@ func init() {
 }
 
 // @title helm3代理
-// @version 1.0
+// @version v1.0
 // @description golang helm-wrapper
 // @termsOfService https://github.com/mutoulazy/helm-wrapper
 func main() {
+	// 输出编译信息
+	if isVersion {
+		fmt.Printf("build_time: %s\n", buildTime)
+		fmt.Printf("build_version: %s\n", buildVersion)
+		fmt.Printf("git_commit_id: %s\n", gitCommitID)
+		return
+	}
+
 	// router
 	router := gin.Default()
 	router.GET("/", func(c *gin.Context) {
@@ -95,6 +107,7 @@ func setupFlag() error {
 	pflag.CommandLine.StringVar(&listenHost, "addr", "0.0.0.0", "server listen addr")
 	pflag.CommandLine.StringVar(&listenPort, "port", "8080", "server listen port")
 	pflag.CommandLine.StringVar(&config, "config", "config/config.yaml", "helm wrapper config")
+	pflag.CommandLine.BoolVar(&isVersion, "version", false, "编译信息")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	global.HelmClientSettings.AddFlags(pflag.CommandLine)
 	pflag.Parse()

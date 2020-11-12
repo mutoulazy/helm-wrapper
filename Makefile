@@ -10,7 +10,7 @@ build:
 # cross compilation
 build-linux:
 # 构建程序 -s -w缩小构建文件大小
-	GOOS=linux GOARCH=amd64 go build -ldflags ${LDFLAGS} -o ${BINARY_NAME}
+	GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.buildTime=`date +%Y-%m-%d,%H:%M:%S` -X main.buildVersion=v1.0 -X main.gitCommitID=`git rev-parse HEAD`" -o ${BINARY_NAME}
 
 # build docker image
 build-docker:
