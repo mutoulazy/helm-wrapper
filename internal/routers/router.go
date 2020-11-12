@@ -2,6 +2,9 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/swaggo/gin-swagger/swaggerFiles"
+	_ "helm-wrapper/docs"
 	"helm-wrapper/internal/routers/api/v1"
 )
 
@@ -11,6 +14,7 @@ func RegisterRouter(router *gin.Engine) {
 	chart := v1.NewChart()
 	release := v1.NewRelease()
 	apiv1 := router.Group("/api/v1")
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/swagger/doc.json")))
 	{
 		apiv1.GET("/envs", env.GetHelmEnvs)
 

@@ -147,6 +147,11 @@ func updateChart(c *repo.Entry) error {
 	return nil
 }
 
+// @Summary			更新chart镜像库
+// @Description 	更新chart仓库信息
+// @Tags			Repository
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/repositories [put]
 func (rep Repository) UpdateRepositories(c *gin.Context) {
 	response := app.NewResponse(c)
 	type errRepo struct {
@@ -180,6 +185,14 @@ func (rep Repository) UpdateRepositories(c *gin.Context) {
 	return
 }
 
+// @Summary 		查找chart/列出本地库中的所有chart
+// @Description 	在本地库中查找chart，如没有keyword则列出所有chart
+// @Tags			Repository
+// @Param 			keyword query string false "搜索关键字"
+// @Param   		version query string false "chart版本"
+// @Param   		versions query bool false "如果true，查询出每个chart的所有版本；false，只列出每个chart最新版"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/repositories/charts [get]
 func (rep Repository) ListRepoCharts(c *gin.Context) {
 	response := app.NewResponse(c)
 	version := c.Query("version")   // chart version

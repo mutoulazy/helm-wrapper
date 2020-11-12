@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"helm-wrapper/global"
+	"helm-wrapper/internal/model"
 	"helm-wrapper/internal/service"
 	"helm-wrapper/pkg/app"
 	"helm-wrapper/pkg/errcode"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/glog"
@@ -59,32 +59,6 @@ type releaseElement struct {
 	// TODO: Test Suite?
 }
 
-type releaseOptions struct {
-	// common
-	DryRun          bool          `json:"dry_run"`
-	DisableHooks    bool          `json:"disable_hooks"`
-	Wait            bool          `json:"wait"`
-	Devel           bool          `json:"devel"`
-	Description     string        `json:"description"`
-	Atomic          bool          `json:"atomic"`
-	SkipCRDs        bool          `json:"skip_crds"`
-	SubNotes        bool          `json:"sub_notes"`
-	Timeout         time.Duration `json:"timeout"`
-	Values          string        `json:"values"`
-	SetValues       []string      `json:"set"`
-	SetStringValues []string      `json:"set_string"`
-
-	// only install
-	CreateNamespace  bool `json:"create_namespace"`
-	DependencyUpdate bool `json:"dependency_update"`
-
-	// only upgrade
-	Force         bool `json:"force"`
-	Install       bool `json:"install"`
-	Recreate      bool `json:"recreate"`
-	CleanupOnFail bool `json:"cleanup_on_fail"`
-}
-
 // helm List struct
 type releaseListOptions struct {
 	// All ignores the limit/offset
@@ -126,7 +100,7 @@ func formatAppVersion(c *chart.Chart) string {
 	return c.AppVersion()
 }
 
-func mergeValues(options releaseOptions) (map[string]interface{}, error) {
+func mergeValues(options model.ReleaseOptions) (map[string]interface{}, error) {
 	vals := map[string]interface{}{}
 	err := yaml.Unmarshal([]byte(options.Values), &vals)
 	if err != nil {
@@ -205,6 +179,15 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
 }
 
+// @Summary			获取release详细信息
+// @Description 	根据名称获取release信息(helm get)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			info query string true "Enums(all, hooks, manifest, notes, values)"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release} [get]
 func (rel Release) ShowReleaseInfo(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")
@@ -262,6 +245,16 @@ func (rel Release) ShowReleaseInfo(c *gin.Context) {
 	}
 }
 
+// @Summary			安装release
+// @Description 	安装chart的实例(helm install)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			chart query string true "chart名称"
+// @Param 			options body model.ReleaseOptions false "安装可选项"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release} [post]
 func (rel Release) InstallRelease(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")
@@ -279,7 +272,7 @@ func (rel Release) InstallRelease(c *gin.Context) {
 		aimChart = global.MyHelmConfig.UploadPath + "/" + aimChart
 	}
 
-	var options releaseOptions
+	var options model.ReleaseOptions
 	err := c.ShouldBindJSON(&options)
 	if err != nil && err != io.EOF {
 		response.ToErrorResponse(errcode.ErrorInstallReleaseFail.WithDetails(err.Error()))
@@ -366,6 +359,14 @@ func (rel Release) InstallRelease(c *gin.Context) {
 	response.ToResponse(gin.H{"msg": "success"})
 }
 
+// @Summary			卸载release
+// @Description 	卸载chart的实例(helm uninstall)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release} [delete]
 func (rel Release) UninstallRelease(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")
@@ -388,6 +389,15 @@ func (rel Release) UninstallRelease(c *gin.Context) {
 	return
 }
 
+// @Summary			release回滚
+// @Description 	回滚release到之前版本(helm rollback)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			reversion path string true "chart版本号"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release}/versions/{reversion} [put]
 func (rel Release) RollbackRelease(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")
@@ -416,6 +426,16 @@ func (rel Release) RollbackRelease(c *gin.Context) {
 	return
 }
 
+// @Summary			release升级
+// @Description 	升级release(helm upgrade)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			options body model.ReleaseOptions false "安装可选项"
+// @Param 			chart query string true "chart名称"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release} [put]
 func (rel Release) UpgradeRelease(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")
@@ -433,7 +453,7 @@ func (rel Release) UpgradeRelease(c *gin.Context) {
 		aimChart = global.MyHelmConfig.UploadPath + "/" + aimChart
 	}
 
-	var options releaseOptions
+	var options model.ReleaseOptions
 	err := c.ShouldBindJSON(&options)
 	if err != nil && err != io.EOF {
 		response.ToErrorResponse(errcode.ErrorUpgradeReleaseFail.WithDetails(err.Error()))
@@ -495,6 +515,13 @@ func (rel Release) UpgradeRelease(c *gin.Context) {
 	return
 }
 
+// @Summary			获取helm的release列表
+// @Description 	根据命名空间获取release信息列表(helm list)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases [get]
 func (rel Release) ListReleases(c *gin.Context) {
 	response := app.NewResponse(c)
 	namespace := c.Param("namespace")
@@ -552,6 +579,14 @@ func (rel Release) ListReleases(c *gin.Context) {
 	return
 }
 
+// @Summary			查看release状态
+// @Description 	获取release状态信息(helm status)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release}/status [get]
 func (rel Release) GetReleaseStatus(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")
@@ -576,6 +611,14 @@ func (rel Release) GetReleaseStatus(c *gin.Context) {
 	return
 }
 
+// @Summary			查看release历史记录
+// @Description 	获取release历史记录(helm release history)
+// @Tags			Release
+// @Param 			namespace path string true "release所在k8s的命名空间"
+// @Param 			release path string true "release名称"
+// @Param 			kube_context query string false "release所在k8s的context"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/namespaces/{namespace}/releases/{release}/histories [get]
 func (rel Release) ListReleaseHistories(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Param("release")

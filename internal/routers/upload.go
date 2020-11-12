@@ -13,6 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Summary 		上传chart脚本到服务器
+// @Description 	上传chart脚本压缩包到服务器
+// @Tags			Chart
+// @Param 			chart formData file true "chart文件"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/charts/upload [post]
 func UploadChart(c *gin.Context) {
 	response := app.NewResponse(c)
 	file, header, err := c.Request.FormFile("chart")
@@ -47,6 +53,11 @@ func UploadChart(c *gin.Context) {
 	return
 }
 
+// @Summary 		查询上传chart脚本
+// @Description 	查询已经上传chart脚本列表
+// @Tags			Chart
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/charts/upload [get]
 func ListUploadedCharts(c *gin.Context) {
 	response := app.NewResponse(c)
 	charts := []string{}

@@ -38,6 +38,14 @@ func findReadme(files []*chart.File) (file *chart.File) {
 	return nil
 }
 
+// @Summary 		获取chart详细信息
+// @Description 	根据chart名称，获取chart的readme、values、chart、template信息
+// @Tags			Chart
+// @Param 			chart query string true "chart名称"
+// @Param   		version query string false "chart版本"
+// @Param   		info query string false "Enums(all, readme, values, chart、template)"
+// @Success 		200 {object} app.ResponseBody
+// @Router 			/api/v1/charts [get]
 func (chart Chart) ShowChartInfo(c *gin.Context) {
 	response := app.NewResponse(c)
 	name := c.Query("chart")

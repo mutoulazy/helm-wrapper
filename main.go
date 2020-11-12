@@ -45,6 +45,10 @@ func init() {
 	}
 }
 
+// @title helm3代理
+// @version 1.0
+// @description golang helm-wrapper
+// @termsOfService https://github.com/mutoulazy/helm-wrapper
 func main() {
 	// router
 	router := gin.Default()
