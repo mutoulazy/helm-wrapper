@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/penglongli/gin-metrics/ginmetrics"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 	_ "helm-wrapper/docs"
@@ -17,7 +18,7 @@ func RegisterRouter(router *gin.Engine) {
 	chart := v1.NewChart()
 	release := v1.NewRelease()
 
-	//注册中间件
+	// 注册中间件
 	if global.MyHelmConfig.RunMode == "debug" {
 		router.Use(gin.Logger())
 		router.Use(gin.Recovery())
@@ -29,6 +30,14 @@ func RegisterRouter(router *gin.Engine) {
 	router.Use(middleware.Translations())
 	router.Use(middleware.AppInfo())
 
+	// 注册监控接口
+	m := ginmetrics.GetMonitor()
+	m.SetMetricPath("/metrics")
+	m.SetSlowTime(10)
+	m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
+	m.Use(router)
+
+	// 注册业务接口
 	apiv1 := router.Group("/api/v1")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/swagger/doc.json")))
 	{
