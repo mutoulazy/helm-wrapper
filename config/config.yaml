@@ -5,7 +5,7 @@ writeTimeout: 60
 readTimeout: 60
 defaultContextTimeout: 60
 #runMode: release debug test
-runMode: release
+runMode: debug
 uploadPath: /tmp/charts
 helmRepos:
 #  - name: bitnami
