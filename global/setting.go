@@ -8,13 +8,15 @@ import (
 )
 
 type HelmConfig struct {
-	UploadPath   string        `yaml:"uploadPath"`
-	HelmRepos    []*repo.Entry `yaml:"helmRepos"`
-	ReadTimeout  time.Duration `yaml:"readTimeout"`
-	WriteTimeout time.Duration `yaml:"writeTimeout"`
-	LogSavePath  string        `yaml:"logSavePath"`
-	LogFileName  string        `yaml:"logFileName"`
-	LogFileExt   string        `yaml:"logFileExt"`
+	UploadPath            string        `yaml:"uploadPath"`
+	HelmRepos             []*repo.Entry `yaml:"helmRepos"`
+	ReadTimeout           time.Duration `yaml:"readTimeout"`
+	WriteTimeout          time.Duration `yaml:"writeTimeout"`
+	LogSavePath           string        `yaml:"logSavePath"`
+	LogFileName           string        `yaml:"logFileName"`
+	LogFileExt            string        `yaml:"logFileExt"`
+	DefaultContextTimeout time.Duration `yaml:"defaultContextTimeout"`
+	RunMode               string        `yaml:"runMode"`
 }
 
 var (

@@ -5,7 +5,10 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
 	_ "helm-wrapper/docs"
+	"helm-wrapper/global"
+	"helm-wrapper/internal/middleware"
 	"helm-wrapper/internal/routers/api/v1"
+	"time"
 )
 
 func RegisterRouter(router *gin.Engine) {
@@ -13,6 +16,19 @@ func RegisterRouter(router *gin.Engine) {
 	repository := v1.NewRepository()
 	chart := v1.NewChart()
 	release := v1.NewRelease()
+
+	//注册中间件
+	if global.MyHelmConfig.RunMode == "debug" {
+		router.Use(gin.Logger())
+		router.Use(gin.Recovery())
+	} else {
+		router.Use(middleware.AccessLog())
+		router.Use(middleware.Recovery())
+	}
+	router.Use(middleware.ContextTimeout(global.MyHelmConfig.DefaultContextTimeout * time.Second))
+	router.Use(middleware.Translations())
+	router.Use(middleware.AppInfo())
+
 	apiv1 := router.Group("/api/v1")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/swagger/doc.json")))
 	{

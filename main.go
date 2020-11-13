@@ -62,8 +62,10 @@ func main() {
 		return
 	}
 
+	gin.SetMode(global.MyHelmConfig.RunMode)
+
 	// router
-	router := gin.Default()
+	router := gin.New()
 	router.GET("/", func(c *gin.Context) {
 		c.String(http.StatusOK, "Welcome helm wrapper server")
 	})
@@ -72,10 +74,11 @@ func main() {
 	routers.RegisterRouter(router)
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", listenHost, listenPort),
-		Handler:      router,
-		ReadTimeout:  global.MyHelmConfig.ReadTimeout * time.Second,
-		WriteTimeout: global.MyHelmConfig.WriteTimeout * time.Second,
+		Addr:           fmt.Sprintf("%s:%s", listenHost, listenPort),
+		Handler:        router,
+		ReadTimeout:    global.MyHelmConfig.ReadTimeout * time.Second,
+		WriteTimeout:   global.MyHelmConfig.WriteTimeout * time.Second,
+		MaxHeaderBytes: 1 << 20,
 	}
 
 	go func() {
