@@ -1,186 +1,63 @@
-# A [Helm3](https://github.com/helm/helm) HTTP Wrapper With [Go SDK](https://helm.sh/docs/topics/advanced/#go-sdk)
+# A [Helm3](https://github.com/helm/helm) HTTP Wrapper With Go SDK
 
-+ [中文文档](README_CN.md)
-
-helm-wrapper is a helm3 HTTP wrapper with [helm Go SDK](https://helm.sh/docs/topics/advanced/#go-sdk). With helm-wrapper, you can use HTTP RESTFul API do something like helm commondline (install/uninstall/upgrade/get/list/rollback...).
+通过 Go [Gin](https://github.com/gin-gonic/gin) Web 框架，结合 Helm Go SDK 封装的 HTTP Server，
+让 Helm 相关的日常命令操作可以通过 Restful API 的方式来实现命令行同样的操作。
+> __注：__  基于helm-wrapper原版进行了一些工程化的改造
 
 ## Support API
 
-
-* If there are some APIs need to support multiple clusters,you can use the parameters below
-
-| Params | Description |
-| :- | :- |
-| kube_context | Support distinguish multiple clusters by the`kube_context`  |
-
-
-
-+ helm install
-    - `POST`
-    - `/api/namespaces/:namespace/releases/:release?chart=<chartName>`
-
-POST Body: 
-
-``` json
-{
-    "dry_run": false,           // `--dry-run`
-    "disable_hooks": false,     // `--no-hooks`
-    "wait": false,              // `--wait`
-    "devel": false,             // `--false`
-    "description": "",          // `--description`
-    "atomic": false,            // `--atomic`
-    "skip_crds": false,         // `--skip-crds`
-    "sub_notes": false,         // `--render-subchart-notes`
-    "create_namespace": false,  // `--create-namespace`
-    "dependency_update": false, // `--dependency-update`
-    "values": "",               // `--values`
-    "set": [],                  // `--set`
-    "set_string": []            // `--set-string`
-}
-```
-
-> `"values"` -> helm install `--values` option 
-
-+ helm uninstall
-    - `DELETE`
-    - `/api/namespaces/:namespace/releases/:release`
-
-
-+ helm upgrade
-    - `PUT`
-    - `/api/namespaces/:namespace/releases/:release?chart=<chartName>`
-
-PUT Body: 
-
-``` json
-{
-    "dry_run": false,           // `--dry-run`
-    "disable_hooks": false,     // `--no-hooks`
-    "wait": false,              // `--wait`
-    "devel": false,             // `--false`
-    "description": "",          // `--description`
-    "atomic": false,            // `--atomic`
-    "skip_crds": false,         // `--skip-crds`
-    "sub_notes": false,         // `--render-subchart-notes`
-    "force": false,             // `--force`
-    "install": false,           // `--install`
-    "recreate": false,          // `--recreate`
-    "cleanup_on_fail": false,   // `--cleanup-on-fail`
-    "values": "",               // `--values`
-    "set": [],                  // `--set`
-    "set_string": []            // `--set-string`
-}
-```
-
-> `"values"` -> helm install `--values` option 
-
-+ helm rollback
-    - `PUT`
-    - `/api/namespaces/:namespace/releases/:release/versions/:reversion`
-
-
-+ helm list
-    - `GET`
-    - `/api/namespaces/:namespace/releases`
-
-Body:
-
-```
-{
-    "all": false,               // `--all`
-    "all_namespaces": false,    // `--all-namespaces`
-    "by_date": false,           // `--date`
-    "sort_reverse": false,      // `--reverse`
-    "limit":  ,                 // `--max`
-    "offset": ,                 // `--offset`
-    "filter": "",               // `--filter`
-    "uninstalled": false,       // `--uninstalled`
-    "uninstalling": false,      // `--uninstalling`
-    "superseded": false,        // `--superseded`
-    "failed": false,            // `--failed`
-    "deployed": false,          // `--deployed`
-    "pending": false            // `--pending`
-}
-```
-
-+ helm get
-    - `GET`
-    - `/api/namespaces/:namespace/releases/:release`
+* 如果某些API需要支持多个集群，则可以使用以下参数
 
 | Params | Description |
 | :- | :- |
-| info | support all/hooks/manifest/notes/values |
+| kube_context | 支持指定kube_context来区分不同集群 |
 
-+ helm release history
-    - `GET`
-    - `/api/namespaces/:namespace/releases/:release/histories`
+支持helm install的基本增删回查的命令，详情可以看swagger文档
+[swagger文档](http://localhost:8080/swagger/index.html)
 
+### 响应
 
-+ helm show
-    - `GET`
-    - `/api/charts`
-
-| Params | Description |
-| :- | :- |
-| chart  | chart name, required|
-| info   | support readme/values/chart |
-| version | --version |
-
-+ helm search repo
-    - `GET`
-    - `/api/repositories/charts`
-
-| Params | Description |
-| :- | :- |
-| keyword | search keyword，required |
-| version | chart version |
-| versions | if "true", all versions |
-
-+ helm repo update
-    - `PUT`
-    - `/api/repositories`
-
-+ helm env
-    - `GET`
-    - `/api/envs`
-
-+ upload chart
-    - `POST`
-    - `/api/charts/upload`
-
-| Params | Description |
-| :- | :- |
-| chart | upload chart file, with suffix .tgz |
-
-+ list local charts
-    - `GET`
-    - `/api/charts/upload`
-
-> __Notes:__ helm-wrapper is Alpha status, no more test
-
-### Response 
-
+为了简化，所有请求统一返回 200 状态码，通过返回 Body 中的 Code 值来判断响应是否正常：
 
 ``` go
-type respBody struct {
-    Code  int         `json:"code"` // 0 or 1, 0 is ok, 1 is error
-    Data  interface{} `json:"data,omitempty"`
-    Error string      `json:"error,omitempty"`
+type ResponseBody struct {
+	Code    int         `json:"code"`
+	Msg     string      `json:"msg,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+	Details []string    `json:"details,omitempty"`
 }
 ```
+
+并且构建了统一错误码和日志文件用于快速定位问题
+
+### 监控指标
+采用[gin-metrics](github.com/penglongli/gin-metrics)组件为应用提供业务相关监控指标
+http://localhost:8080/metrics
+
+| Metric                  | Type      | Description                                         |
+| ----------------------- | --------- | --------------------------------------------------- |
+| gin_request_total       | Counter   | 服务接收到的请求总数                |
+| gin_request_uv          | Counter   | 服务接收到的 IP 总数                     |
+| gin_uri_request_total   | Counter   | 每个 URI 接收到的服务请求数 |
+| gin_request_body_total  | Counter   | 服务接收到的请求量，单位: 字节   |
+| gin_response_body_total | Counter   | 服务返回的请求量，单位: 字节      |
+| gin_request_duration    | Histogram | 服务处理请求使用的时间         |
+| gin_slow_request_total  | Counter   | 服务接收到的慢请求计数     |
 
 
 ## Build & Run 
 
 ### Build
 
+源码提供了简单的 `Makefile` 文件，如果要构建二进制，只需要通过以下方式构建即可。
+
 ```
-make build
-make build-linux    // build helm-wrapper Linux binary
-make build-docker   // build docker image with helm-wrapper
+make build          // 构建当前主机架构的二进制版本
+make build-linux    // 构建 Linux 版本的二进制
+make build-docker   // 构建 Docker 镜像
 ```
 
-#### helm-wrapper help
+直接构建会生成名为 `helm-wrapper` 的二进制程序，你可以通过如下方式获取帮助：
 
 ```
 $ helm-wrapper -h
@@ -205,30 +82,43 @@ Usage of helm-wrapper:
 pflag: help requested
 ```
 
-+ `--config` helm-wrapper configuration: 
+关键性的选项说明一下：
+
++ `--config` helm-wrapper 的配置项，内容如下，主要是指定 Helm Repo 命名和 URL，用于 Repo 初始化。
 
 ```
 $ cat config-example.yaml
+logSavePath: storage/logs
+logFileName: app
+logFileExt: .log
+writeTimeout: 60
+readTimeout: 60
+defaultContextTimeout: 60
+#runMode: release debug test
+runMode: debug
 uploadPath: /tmp/charts
 helmRepos:
-  - name: bitnami
-    url: https://charts.bitnami.com/bitnami
+#  - name: bitnami
+#    url: https://charts.bitnami.com/bitnami
 ```
-
-+ `--kubeconfig` default kubeconfig path is `~/.kube/config`.About `kubeconfig`, you can see [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
++ `--kubeconfig` 默认如果你不指定的话，使用默认的路径，一般是 `~/.kube/config`。这个配置是必须的，这指明了你要操作的 Kubernetes 集群地址以及访问方式。`kubeconfig` 文件如何生成，这里不过多介绍，具体可以详见 [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/)
 
 ### Run
+
+运行比较简单，如果你本地已经有默认的 `kubeconfig` 文件，只需要把 helm-wrapper 需要的 repo 配置文件配置好即可，然后执行以下命令即可运行，示例如下：
 
 ```
 $ ./helm-wrapper --config </path/to/config.yaml> --kubeconfig </path/to/kubeconfig>
 ```
 
-#### Deploy in Kubernetes Cluster
+> 启动时会先初始化 repo，因此根据 repo 本身的大小或者网络因素，会耗费些时间
 
-replace deployment/deployment.yaml with helm-wrapper image, then:
+#### 运行在 Kubernetes 集群中
+
+替换 `deployment/deployment.yaml` 中 image 字段为你正确的 helm-wrapper 镜像地址即可，然后执行命令部署：
 
 ```
-kubeclt create -f ./deployment 
+kubectl create -f ./deployment
 ```
 
-> __Noets:__ with deployment/rbac.yaml, you not need `--kubeconfig`
+> __注：__ 以上操作会创建 RBAC 相关，因此不需要在构建镜像的时候额外添加 kubeconfig 文件，默认会拥有相关的权限
